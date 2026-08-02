@@ -18,5 +18,3 @@ class Event(Base):
 
     signup_open_date = Column(DateTime)
     signup_close_date = Column(DateTime)
-
-    status = Column(Enum(StatusType), default=StatusType.OPEN)

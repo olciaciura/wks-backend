@@ -6,7 +6,6 @@ class UserCreate(BaseModel):
     email: str
     login: str
     password: str
-    role: RoleType = RoleType.USER
     birth_year: int | None = None
     gender: GenderType | None = None
     category: str | None = None

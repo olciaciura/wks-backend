@@ -59,15 +59,15 @@ class EventCreateRequest(BaseModel):
     date_to: date
     signup_open_date: datetime
     signup_close_date: datetime
-    status: EventStatusType = EventStatusType.OPEN
 
-    training_details: TrainingDetailsInput | None = None
-    training_routes: list[TrainingRouteInput] = []
-
+class CompetitionCreateRequest(EventCreateRequest):
     competition_details: CompetitionDetailsInput | None = None
     competition_runs: list[CompetitionRunInput] = []
     food_options: list[FoodOptionInput] = []
 
+class TrainingCreateRequest(EventCreateRequest):
+    training_details: TrainingDetailsInput | None = None
+    training_routes: list[TrainingRouteInput] = []
 
 class TrainingResponseInput(BaseModel):
     selected_route_id: str | None = None
@@ -93,5 +93,8 @@ class SubmitEventResponseRequest(BaseModel):
     can_take_people: int = 0
     comment: str | None = None
 
-    training: TrainingResponseInput | None = None
-    competition: CompetitionResponseInput | None = None
+class SubmitTrainingResponseRequest(SubmitEventResponseRequest):
+    training: TrainingResponseInput
+
+class SubmitCompetitionResponseRequest(SubmitEventResponseRequest):
+    competition: CompetitionResponseInput
