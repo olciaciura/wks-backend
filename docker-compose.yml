@@ -1,0 +1,72 @@
+version: "0.1"
+
+services:
+   mysql:
+      image: mysql:8.0
+      container_name: ${ENV_LABEL}-mysql
+      restart: unless-stopped
+
+      ports:
+         - "${BASE_DB_PORT}:3306"
+
+      environment:
+         MYSQL_DATABASE: ${OLA_BASE_DB_NAME}
+         MYSQL_ROOT_PASSWORD: ${OLA_BASE_DB_PASSWORD}
+         MYSQL_USER: ${OLA_BASE_DB_USER}
+         MYSQL_PASSWORD: ${OLA_BASE_DB_PASSWORD}
+
+         BASE_DB_PASSWORD: ${OLA_BASE_DB_PASSWORD}
+         BASE_DB_USER: ${OLA_BASE_DB_USER}
+         BASE_DB_NAME: ${OLA_BASE_DB_NAME}
+
+      command: >
+         --default-authentication-plugin=mysql_native_password
+         --max_connections=100
+
+      volumes:
+         - /volumes/wks-zgloszenia-be/${ENV_LABEL}/mysql_data:/var/lib/mysql
+         - ./mysql-init:/docker-entrypoint-initdb.d
+
+      networks:
+         - backend
+
+   wks-zgloszenia-be:
+      image: ghcr.io/olciaciura/wks-zgloszenia-be:${ENV_LABEL}
+      container_name: ${ENV_LABEL}-wks-zgloszenia-be
+      restart: unless-stopped
+
+      command: >
+         sh -c "
+           until nc -z mysql 3306; do echo 'Waiting for MySQL...'; sleep 2; done;
+           uvicorn app.main:app --host 0.0.0.0 --port 8000;
+         "
+
+      environment:
+         - BASE_DB_NAME=${OLA_BASE_DB_NAME}
+         - BASE_DB_USER=${OLA_BASE_DB_USER}
+         - BASE_DB_PASSWORD=${OLA_BASE_DB_PASSWORD}
+         - BASE_DB_HOST=mysql
+         - BASE_DB_PORT=3306
+
+      depends_on:
+         - mysql
+
+      labels:
+         - "traefik.enable=true"
+         - "traefik.http.routers.wks-zgloszenia-be.rule=Host(`api.zgloszenia-treningi.pl`)"
+         - "traefik.http.routers.wks-zgloszenia-be.service=wks-zgloszenia-be"
+         - "traefik.http.services.wks-zgloszenia-be.loadbalancer.server.port=8000"
+         - "traefik.http.routers.wks-zgloszenia-be.entrypoints=websecure"
+         - "traefik.http.routers.wks-zgloszenia-be.tls=true"
+         - "traefik.http.routers.wks-zgloszenia-be.tls.certresolver=letsencrypt"
+         - "traefik.docker.network=traefik"
+
+      networks:
+         - backend
+         - traefik
+
+networks:
+   backend:
+      driver: bridge
+   traefik:
+      external: true
