@@ -21,6 +21,7 @@ from app.types.user_event_response import StatusType as ResponseStatusType
 from app.utils.security import hash_password
 
 
+
 ROOT = Path(__file__).resolve().parents[1]
 DATA_FILE = ROOT / "FRONTEND_TEST_DATA.json"
 
