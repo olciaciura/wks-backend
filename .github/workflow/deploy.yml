@@ -1,0 +1,67 @@
+name: PROD Build and Deploy WKS Zgłoszenia BE
+
+on:
+   # workflow_dispatch:
+   push:
+      branches: [main]
+
+jobs:
+   build:
+      runs-on: ubuntu-latest
+      outputs:
+         image_name: ${{ steps.meta.outputs.image_name }}
+         image_latest: ${{ steps.meta.outputs.image_latest }}
+
+      steps:
+         - name: Checkout
+           uses: actions/checkout@v4
+
+         - name: Prepare image names
+           id: meta
+           run: |
+              REPO=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')
+              IMAGE_NAME=ghcr.io/${REPO}:prod-sha-${GITHUB_SHA}
+              IMAGE_LATEST=ghcr.io/${REPO}:prod
+
+              echo "image_name=$IMAGE_NAME" >> $GITHUB_OUTPUT
+              echo "image_latest=$IMAGE_LATEST" >> $GITHUB_OUTPUT
+
+   publish:
+      runs-on: ubuntu-latest
+      needs: build
+
+      steps:
+         - name: Checkout
+           uses: actions/checkout@v4
+
+         - name: Login to GHCR
+           run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+         - name: Build Docker image
+           run: |
+              docker build \
+                -t ${{ needs.build.outputs.image_name }} \
+                -t ${{ needs.build.outputs.image_latest }} \
+                .
+
+         - name: Push image
+           run: |
+              docker push ${{ needs.build.outputs.image_name }}
+              docker push ${{ needs.build.outputs.image_latest }}
+
+   deploy:
+      runs-on: ubuntu-latest
+      needs: publish
+
+      steps:
+         - name: Deploy on VPS
+           uses: appleboy/ssh-action@v1.0.3
+           with:
+              host: ${{ secrets.VPS_HOST }}
+              username: ${{ secrets.VPS_USER }}
+              key: ${{ secrets.VPS_SSH_KEY }}
+              script: |
+                 echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u olciaciura --password-stdin
+                 cd /docker/wks-zgloszenia-be
+                 docker compose pull
+                 docker compose up -d
