@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
@@ -156,6 +156,12 @@ def list_user_events(user_id: str, db: Session = Depends(get_db)):
         )
         .filter(Event.date_to >= datetime.utcnow())
         .filter(Event.signup_open_date <= datetime.utcnow())
+        .filter(
+            or_(
+                Event.signup_close_date > datetime.utcnow(),
+                UserEventResponse.status == ResponseStatusType.FILLED,
+            )
+        )
         .order_by(Event.signup_open_date.desc())
         .all()
     )
