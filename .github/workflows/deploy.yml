@@ -20,8 +20,8 @@ jobs:
            id: meta
            run: |
               REPO=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')
-              IMAGE_NAME=ghcr.io/${REPO}:prod-sha-${GITHUB_SHA}
-              IMAGE_LATEST=ghcr.io/${REPO}:prod
+              IMAGE_NAME=ghcr.io/olciaciura/wks-zgloszenia-be
+              IMAGE_LATEST=ghcr.io/olciaciura/wks-zgloszenia-be
 
               echo "image_name=$IMAGE_NAME" >> $GITHUB_OUTPUT
               echo "image_latest=$IMAGE_LATEST" >> $GITHUB_OUTPUT
