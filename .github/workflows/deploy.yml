@@ -19,8 +19,8 @@ jobs:
          - name: Prepare image names
            id: meta
            run: |
-              IMAGE_NAME=ghcr.io/olciaciura/wks-zgloszenia-be:prod-sha-${GITHUB_SHA}
-              IMAGE_LATEST=ghcr.io/olciaciura/wks-zgloszenia-be:prod
+              IMAGE_NAME=ghcr.io/olciaciura/wks-zgloszenia-be:sha-${GITHUB_SHA}
+              IMAGE_LATEST=ghcr.io/olciaciura/wks-zgloszenia-be:latest
 
               echo "image_name=$IMAGE_NAME" >> $GITHUB_OUTPUT
               echo "image_latest=$IMAGE_LATEST" >> $GITHUB_OUTPUT
