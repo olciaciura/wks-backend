@@ -18,3 +18,5 @@ class Event(Base):
 
     signup_open_date = Column(DateTime)
     signup_close_date = Column(DateTime)
+
+    location = Column(String)

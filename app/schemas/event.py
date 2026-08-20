@@ -57,6 +57,7 @@ class EventCreateRequest(BaseModel):
     description: str | None = None
     date_from: date
     date_to: date
+    location: str | None = None
     signup_open_date: datetime
     signup_close_date: datetime
 

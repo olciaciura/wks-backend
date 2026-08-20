@@ -47,6 +47,7 @@ def create_training(payload: TrainingCreateRequest, db: Session = Depends(get_db
         description=payload.description,
         date_from=payload.date_from,
         date_to=payload.date_to,
+        location=payload.location,
         signup_open_date=payload.signup_open_date,
         signup_close_date=payload.signup_close_date,
     )
@@ -94,6 +95,7 @@ def create_competition(payload: CompetitionCreateRequest, db: Session = Depends(
         description=payload.description,
         date_from=payload.date_from,
         date_to=payload.date_to,
+        location=payload.location,
         signup_open_date=payload.signup_open_date,
         signup_close_date=payload.signup_close_date,
     )
@@ -173,6 +175,9 @@ def list_user_events(user_id: str, db: Session = Depends(get_db)):
                 "event_id": event.id,
                 "event_name": event.title,
                 "event_type": event.type.value,
+                "date_from": event.date_from,
+                "date_to":event.date_to,
+                "location": event.location,
                 "signup_open_date": event.signup_open_date,
                 "signup_close_date": event.signup_close_date,
                 "user_response_status": _response_label(user_response.status if user_response else None),
@@ -205,6 +210,9 @@ def list_all_events(user_id: str, db: Session = Depends(get_db)):
                 "event_id": event.id,
                 "event_name": event.title,
                 "event_type": event.type.value,
+                "date_from": event.date_from,
+                "date_to":event.date_to,
+                "location": event.location,
                 "signup_open_date": event.signup_open_date,
                 "signup_close_date": event.signup_close_date,
                 "user_response_status": _response_label(user_response.status if user_response else None),
@@ -440,3 +448,225 @@ def get_event_details(event_id: str, user_id: str | None = None, db: Session = D
                 }
 
     return payload
+
+
+@router.get("/{event_id}/all_responses")
+def get_responses_by_event(event_id: str, db: Session = Depends(get_db)):
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    responses = (
+        db.query(UserEventResponse, User)
+        .join(User, User.id == UserEventResponse.user_id)
+        .filter(UserEventResponse.event_id == event_id)
+        .all()
+    )
+
+    result = {
+        "event": {
+            "id": event.id,
+            "title": event.title,
+            "type": event.type.value,
+            "date_from": event.date_from,
+            "date_to": event.date_to,
+        },
+        "statistics": {},
+        "users": [],
+    }
+
+    if event.type == EventType.TRAINING:
+        route_stats = {}
+
+        participants = 0
+        needs_transport = 0
+        transport_places_offered = 0
+
+        for response, user in responses:
+            if response.status == ResponseStatusType.FILLED:
+                participants += 1
+
+            if response.needs_transport:
+                needs_transport += 1
+
+            transport_places_offered += int(response.can_take_people or 0)
+
+            training_response = (
+                db.query(TrainingResponse)
+                .filter(TrainingResponse.response_id == response.id)
+                .first()
+            )
+
+            route_data = None
+
+            if training_response and training_response.selected_route_id:
+                route = (
+                    db.query(TrainingRoutes)
+                    .filter(
+                        TrainingRoutes.id == training_response.selected_route_id
+                    )
+                    .first()
+                )
+
+                if route:
+                    route_data = {
+                        "id": route.id,
+                        "name": route.name,
+                        "distance": float(route.distance),
+                    }
+
+                    route_stats.setdefault(
+                        route.id,
+                        {
+                            "route_id": route.id,
+                            "route_name": route.name,
+                            "participants": 0,
+                        },
+                    )
+
+                    if response.status == ResponseStatusType.FILLED:
+                        route_stats[route.id]["participants"] += 1
+
+            result["users"].append(
+                {
+                    "user_id": user.id,
+                    "name": getattr(user, "name", None),
+                    "email": getattr(user, "email", None),
+                    "status": response.status.value,
+                    "needs_transport": response.needs_transport,
+                    "self_transport": response.self_transport,
+                    "can_take_people": response.can_take_people,
+                    "comment": response.comment,
+                    "submitted_at": response.submitted_at,
+                    "training": {
+                        "selected_route": route_data,
+                    },
+                }
+            )
+
+        result["statistics"] = {
+            "participants": participants,
+            "needs_transport": needs_transport,
+            "transport_places_offered": transport_places_offered,
+            "routes": list(route_stats.values()),
+        }
+
+    elif event.type == EventType.COMPETITION:
+        participants = 0
+        needs_transport = 0
+        transport_places_offered = 0
+        needs_accommodation = 0
+        wants_food = 0
+        wants_vege = 0
+
+        run_stats = {}
+
+        for response, user in responses:
+            if response.status == ResponseStatusType.FILLED:
+                participants += 1
+
+            if response.needs_transport:
+                needs_transport += 1
+
+            transport_places_offered += int(response.can_take_people or 0)
+
+            competition_response = (
+                db.query(CompetitionResponse)
+                .filter(CompetitionResponse.response_id == response.id)
+                .first()
+            )
+
+            user_runs = []
+
+            if competition_response:
+                if competition_response.needs_accommodation:
+                    needs_accommodation += 1
+
+                if competition_response.wants_food:
+                    wants_food += 1
+
+                if competition_response.wants_vege:
+                    wants_vege += 1
+
+            run_selections = (
+                db.query(CompetitionRunSelection)
+                .filter(
+                    CompetitionRunSelection.response_id == response.id
+                )
+                .all()
+            )
+
+            for selection in run_selections:
+                run = (
+                    db.query(CompetitionRun)
+                    .filter(CompetitionRun.id == selection.run_id)
+                    .first()
+                )
+
+                if not run:
+                    continue
+
+                user_runs.append(
+                    {
+                        "run_id": run.id,
+                        "run_name": run.name,
+                        "run_date": run.run_date,
+                        "participates": selection.participates,
+                    }
+                )
+
+                run_stats.setdefault(
+                    run.id,
+                    {
+                        "run_id": run.id,
+                        "run_name": run.name,
+                        "participants": 0,
+                    },
+                )
+
+                if selection.participates:
+                    run_stats[run.id]["participants"] += 1
+
+            result["users"].append(
+                {
+                    "user_id": user.id,
+                    "name": getattr(user, "name", None),
+                    "email": getattr(user, "email", None),
+                    "status": response.status.value,
+                    "needs_transport": response.needs_transport,
+                    "self_transport": response.self_transport,
+                    "can_take_people": response.can_take_people,
+                    "comment": response.comment,
+                    "submitted_at": response.submitted_at,
+                    "competition": {
+                        "needs_accommodation": (
+                            competition_response.needs_accommodation
+                            if competition_response
+                            else False
+                        ),
+                        "wants_food": (
+                            competition_response.wants_food
+                            if competition_response
+                            else False
+                        ),
+                        "wants_vege": (
+                            competition_response.wants_vege
+                            if competition_response
+                            else False
+                        ),
+                        "runs": user_runs,
+                    },
+                }
+            )
+
+        result["statistics"] = {
+            "participants": participants,
+            "needs_transport": needs_transport,
+            "transport_places_offered": transport_places_offered,
+            "needs_accommodation": needs_accommodation,
+            "wants_food": wants_food,
+            "wants_vege": wants_vege,
+            "runs": list(run_stats.values()),
+        }
+
+    return result
