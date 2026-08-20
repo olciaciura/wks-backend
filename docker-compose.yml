@@ -31,7 +31,7 @@ services:
          - backend
 
    wks-zgloszenia-be:
-      image: ghcr.io/olciaciura/wks-zgloszenia-be:${ENV_LABEL}
+      image: ghcr.io/olciaciura/wks-zgloszenia-be:latest
       container_name: ${ENV_LABEL}-wks-zgloszenia-be
       restart: unless-stopped
 
