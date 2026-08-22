@@ -57,30 +57,11 @@ def change_user_role(user_id: str, new_role: RoleType, db: Session = Depends(get
     db.refresh(user)
     return user
 
-Tak, możesz to zrobić z poziomu kodu FastAPI! Skoro masz możliwość wgrywania
-(deployowania) nowego kodu, możesz napisać tymczasowy endpoint (ścieżkę), który
-wykona odpowiednią komendę SQL bezpośrednio na bazie danych, albo dodać skrypt
-uruchamiający się przy starcie aplikacji.
-
-Ponieważ standardowa metoda Base.metadata.create_all(...) nie potrafi
-modyfikować istniejących tabel (nie robi tzw. migracji), musimy "zmusić" bazę do
-wykonania polecenia ALTER TABLE.
-
-Oto najprostszy sposób, jak to zrobić bez logowania się na serwer – przez
-stworzenie ukrytego endpointu:
-
-Dodaj tymczasowy endpoint w głównym pliku FastAPI (np. main.py lub routers/users.py):
-
-Załóżmy, że Twoja tabela nazywa się users, a nowe pole to nowe_pole (zmień to na
-swoje rzeczywiste nazwy).
-
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 from sqlalchemy import text  # <-- To jest ważne do czystego SQL
 from app.database import get_db # Zaimportuj swoją funkcję pobierającą sesję bazy
 
 # Dodaj to gdzieś w swoim kodzie:
-@app.get("/uruchom-migracje-awaryjna")
+@router.get("/uruchom-migracje-awaryjna")
 def migrate_db(db: Session = Depends(get_db)):
     try:
         # Wykonujemy czysty kod SQL, który dodaje kolumnę
