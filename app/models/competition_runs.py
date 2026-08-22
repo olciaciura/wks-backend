@@ -6,8 +6,8 @@ import uuid
 class CompetitionRun(Base):
     __tablename__ = "competition_runs"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    event_id = Column(String, ForeignKey("events.id"))
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    event_id = Column(String(36), ForeignKey("events.id"))
 
-    name = Column(String)
+    name = Column(String(255))
     run_date = Column(DateTime)

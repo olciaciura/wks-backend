@@ -7,13 +7,13 @@ from app.types.user import GenderType, RoleType
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    email = Column(String, unique=True)
-    login = Column(String, unique=True)
-    password_hash = Column(String)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    email = Column(String(255), unique=True)
+    login = Column(String(255), unique=True)
+    password_hash = Column(String(255))
 
     role = Column(Enum(RoleType), default=RoleType.USER)
 
     birth_year = Column(Integer)
     gender = Column(Enum(GenderType))
-    category = Column(String)
+    category = Column(String(255))

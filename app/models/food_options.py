@@ -6,8 +6,8 @@ import uuid
 class FoodOption(Base):
     __tablename__ = "food_options"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    event_id = Column(String, ForeignKey("events.id"))
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    event_id = Column(String(36), ForeignKey("events.id"))
 
     date = Column(DateTime)
 

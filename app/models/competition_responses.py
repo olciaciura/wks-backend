@@ -6,7 +6,7 @@ import uuid
 class CompetitionResponse(Base):
     __tablename__ = "competition_responses"
 
-    response_id = Column(String, ForeignKey("user_event_responses.id"), primary_key=True)
+    response_id = Column(String(36), ForeignKey("user_event_responses.id"), primary_key=True)
     
     needs_accommodation = Column(Boolean, default=False)
 

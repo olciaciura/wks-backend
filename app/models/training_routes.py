@@ -6,9 +6,9 @@ import uuid
 class TrainingRoutes(Base):
     __tablename__ = "training_routes"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    event_id = Column(String, ForeignKey("events.id"))
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    event_id = Column(String(36), ForeignKey("events.id"))
 
-    name = Column(String)
-    description = Column(String)
+    name = Column(String(255))
+    description = Column(String(255))
     distance = Column(Numeric)
