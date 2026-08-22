@@ -1,5 +1,4 @@
-FROM python:3
-
+FROM python:3.12-slim
 WORKDIR /wks-zgloszenia-be
 
 RUN apt-get update && apt-get install -y netcat-openbsd && rm -rf /var/lib/apt/lists/*
