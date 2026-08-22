@@ -58,7 +58,6 @@ def change_user_role(user_id: str, new_role: RoleType, db: Session = Depends(get
     return user
 
 from sqlalchemy import text  # <-- To jest ważne do czystego SQL
-from app.database import get_db # Zaimportuj swoją funkcję pobierającą sesję bazy
 
 # Dodaj to gdzieś w swoim kodzie:
 @router.get("/uruchom-migracje-awaryjna")
