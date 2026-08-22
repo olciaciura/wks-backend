@@ -6,6 +6,8 @@ class UserCreate(BaseModel):
     email: str
     login: str
     password: str
+    first_name: str | None = None
+    last_name: str | None = None
     birth_year: int | None = None
     gender: GenderType | None = None
     category: str | None = None
