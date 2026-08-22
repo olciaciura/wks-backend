@@ -530,7 +530,8 @@ def get_responses_by_event(event_id: str, db: Session = Depends(get_db)):
             result["users"].append(
                 {
                     "user_id": user.id,
-                    "name": getattr(user, "name", None),
+                    "first_name": getattr(user, "first_name", None),
+                    "last_name": getattr(user, "last_name", None),
                     "email": getattr(user, "email", None),
                     "status": response.status.value,
                     "needs_transport": response.needs_transport,
@@ -630,7 +631,8 @@ def get_responses_by_event(event_id: str, db: Session = Depends(get_db)):
             result["users"].append(
                 {
                     "user_id": user.id,
-                    "name": getattr(user, "name", None),
+                    "first_name": getattr(user, "first_name", None),
+                    "last_name": getattr(user, "last_name", None),
                     "email": getattr(user, "email", None),
                     "status": response.status.value,
                     "needs_transport": response.needs_transport,
