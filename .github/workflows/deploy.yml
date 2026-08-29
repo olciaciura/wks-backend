@@ -63,4 +63,5 @@ jobs:
                  echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u olciaciura --password-stdin
                  cd /docker/wks-zgloszenia-be
                  docker compose pull
+                 docker compose up -d --build
                  docker compose up -d
