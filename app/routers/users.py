@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
+import fastapi
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.user import User
-from app.schemas.user import LoginResponse, UserCreate, UserLogin, UserResponse
+from app.schemas.user import ChangePasswordRequest, LoginResponse, UserCreate, UserLogin, UserResponse, UserUpdate
 from app.types.user import RoleType
 from app.utils.security import hash_password, verify_password
 
@@ -44,7 +45,7 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
     if not user or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid login or password")
 
-    return LoginResponse(user_id=user.id, login=user.login, role=user.role)
+    return LoginResponse(user_id=user.id, login=user.login, role=user.role, first_name=user.first_name, last_name=user.last_name, email=user.email, birth_year=user.birth_year, gender=user.gender, category=user.category)
 
 @router.post("/role", response_model=UserResponse)
 def change_user_role(user_id: str, new_role: RoleType, db: Session = Depends(get_db)):
@@ -75,3 +76,55 @@ def migrate_db(db: Session = Depends(get_db)):
     except Exception as e:
         # Jeśli kolumna już istnieje, wyrzuci błąd, co też chcemy zobaczyć
         return {"status": "blad", "szczegoly": str(e)}
+
+
+@router.put("/{user_id}", response_model=LoginResponse)
+def update_user(user_id: str, user_update: UserUpdate, db: Session = Depends(get_db)):
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user_update.email or user_update.login:
+        existing = db.query(User).filter(
+            ((User.email == user_update.email) | (User.login == user_update.login)),
+            User.id != user_id  # <--- To ważne! Wykluczamy nas samych ze sprawdzania
+        ).first()
+        
+        if existing:
+            raise HTTPException(status_code=400, detail="Ten login lub email jest już zajęty przez innego użytkownika")
+
+    update_data = user_update.dict(exclude_unset=True)
+    
+    for key, value in update_data.items():
+        setattr(user, key, value) 
+
+    db.commit()
+    db.refresh(user)
+    
+    return LoginResponse(
+        user_id=str(user.id),
+        login=user.login, 
+        role=user.role.value if hasattr(user.role, 'value') else user.role, 
+        first_name=user.first_name, 
+        last_name=user.last_name, 
+        email=user.email, 
+        birth_year=user.birth_year, 
+        gender=user.gender, 
+        category=user.category
+    )
+
+@router.put("/{user_id}/password")
+def change_password(user_id: str, req: ChangePasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # UWAGA: Załóżmy, że masz funkcję verify_password(plain, hashed)
+    if not verify_password(req.old_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Obecne hasło jest nieprawidłowe")
+        
+    user.password_hash = hash_password(req.new_password)
+    db.commit()
+    
+    return {"msg": "Hasło zmienione pomyślnie"}
