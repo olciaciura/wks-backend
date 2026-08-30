@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
@@ -16,7 +16,7 @@ from app.models.training_responses import TrainingResponse
 from app.models.training_routes import TrainingRoutes
 from app.models.user import User
 from app.models.user_event_response import UserEventResponse
-from app.schemas.event import CompetitionCreateRequest, EventCreateRequest, SubmitCompetitionResponseRequest, SubmitEventResponseRequest, SubmitTrainingResponseRequest, TrainingCreateRequest
+from app.schemas.event import CompetitionCreateRequest, EventCreateRequest, EventUpdateRequest, SubmitCompetitionResponseRequest, SubmitEventResponseRequest, SubmitTrainingResponseRequest, TrainingCreateRequest
 from app.types.events import EventType
 from app.types.user_event_response import StatusType as ResponseStatusType
 
@@ -341,6 +341,7 @@ def get_event_details(event_id: str, user_id: str | None = None, db: Session = D
             "type": event.type.value,
             "title": event.title,
             "description": event.description,
+            "location": event.location,
             "date_from": event.date_from,
             "date_to": event.date_to,
             "signup_open_date": event.signup_open_date,
@@ -449,6 +450,69 @@ def get_event_details(event_id: str, user_id: str | None = None, db: Session = D
 
     return payload
 
+@router.put("/{event_id}")
+def update_event(event_id: str, payload: EventUpdateRequest, db: Session = Depends(get_db)):
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # FastAPI i Pydantic już zamieniły wszystkie stringi na pythonowe obiekty date/datetime!
+    event.title = payload.title
+    event.location = payload.location
+    event.date_from = payload.date_from
+    event.date_to = payload.date_to
+    event.signup_open_date = payload.signup_open_date
+    event.signup_close_date = payload.signup_close_date
+
+    db.flush()
+
+    # AKTUALIZACJA TRENINGU
+    if payload.type == EventType.TRAINING and payload.training_details:
+        details = db.query(TrainingDetails).filter(TrainingDetails.event_id == event_id).first()
+        if details:
+            details.transport_available = payload.training_details.transport_available
+            details.meeting_time = payload.training_details.meeting_time
+            details.start_time = payload.training_details.start_time
+            details.meeting_location_desc = payload.training_details.meeting_location_desc
+            details.meeting_location_link = payload.training_details.meeting_location_link
+            details.start_location_desc = payload.training_details.start_location_desc
+            details.start_location_link = payload.training_details.start_location_link
+            details.type = payload.training_details.type
+
+        # Czyszczenie i dodawanie tras
+        db.query(TrainingRoutes).filter(TrainingRoutes.event_id == event_id).delete()
+        for r in payload.training_routes:
+            db.add(TrainingRoutes(
+                event_id=event_id,
+                name=r.name,
+                description=r.description,
+                distance=r.distance
+            ))
+
+    # AKTUALIZACJA ZAWODÓW
+    elif payload.type == EventType.COMPETITION and payload.competition_details:
+        details = db.query(CompetitionDetails).filter(CompetitionDetails.event_id == event_id).first()
+        if details:
+            details.transport_available = payload.competition_details.transport_available
+            details.departure_time = payload.competition_details.departure_time
+            details.departure_location_desc = payload.competition_details.departure_location_desc
+            details.departure_location_link = payload.competition_details.departure_location_link
+            details.accomodation_available = payload.competition_details.accomodation_available
+            details.food_available = payload.competition_details.food_available
+            details.food_vege_available = payload.competition_details.food_vege_available
+            details.series_signup = payload.competition_details.series_signup
+
+        # Czyszczenie i dodawanie biegów
+        db.query(CompetitionRun).filter(CompetitionRun.event_id == event_id).delete()
+        for r in payload.competition_runs:
+            db.add(CompetitionRun(
+                event_id=event_id,
+                name=r.name,
+                run_date=r.run_date
+            ))
+
+    db.commit()
+    return {"msg": "Wydarzenie zaktualizowane pomyślnie", "event_id": event.id}
 
 @router.get("/{event_id}/all_responses")
 def get_responses_by_event(event_id: str, db: Session = Depends(get_db)):

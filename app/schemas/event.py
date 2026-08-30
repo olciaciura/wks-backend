@@ -99,3 +99,10 @@ class SubmitTrainingResponseRequest(SubmitEventResponseRequest):
 
 class SubmitCompetitionResponseRequest(SubmitEventResponseRequest):
     competition: CompetitionResponseInput
+
+class EventUpdateRequest(EventCreateRequest):
+    training_details: TrainingDetailsInput | None = None
+    training_routes: list[TrainingRouteInput] = []
+    competition_details: CompetitionDetailsInput | None = None
+    competition_runs: list[CompetitionRunInput] = []
+    food_options: list[FoodOptionInput] = []
