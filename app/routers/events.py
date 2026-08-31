@@ -19,6 +19,8 @@ from app.models.user_event_response import UserEventResponse
 from app.schemas.event import CompetitionCreateRequest, EventCreateRequest, EventUpdateRequest, SubmitCompetitionResponseRequest, SubmitEventResponseRequest, SubmitTrainingResponseRequest, TrainingCreateRequest
 from app.types.events import EventType
 from app.types.user_event_response import StatusType as ResponseStatusType
+from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -456,17 +458,17 @@ def update_event(event_id: str, payload: EventUpdateRequest, db: Session = Depen
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    # FastAPI i Pydantic już zamieniły wszystkie stringi na pythonowe obiekty date/datetime!
     event.title = payload.title
     event.location = payload.location
     event.date_from = payload.date_from
     event.date_to = payload.date_to
     event.signup_open_date = payload.signup_open_date
     event.signup_close_date = payload.signup_close_date
-
     db.flush()
 
+    # ==========================================
     # AKTUALIZACJA TRENINGU
+    # ==========================================
     if payload.type == EventType.TRAINING and payload.training_details:
         details = db.query(TrainingDetails).filter(TrainingDetails.event_id == event_id).first()
         if details:
@@ -479,17 +481,31 @@ def update_event(event_id: str, payload: EventUpdateRequest, db: Session = Depen
             details.start_location_link = payload.training_details.start_location_link
             details.type = payload.training_details.type
 
-        # Czyszczenie i dodawanie tras
-        db.query(TrainingRoutes).filter(TrainingRoutes.event_id == event_id).delete()
-        for r in payload.training_routes:
-            db.add(TrainingRoutes(
-                event_id=event_id,
-                name=r.name,
-                description=r.description,
-                distance=r.distance
-            ))
+        # ZMIANA: Tylko aktualizujemy lub dodajemy trasy - ZADNEGO USUWANIA
+        existing_routes = db.query(TrainingRoutes).filter(TrainingRoutes.event_id == event_id).all()
+        existing_routes_dict = {str(route.id): route for route in existing_routes}
 
+        for r in payload.training_routes:
+            r_id = str(r.id) if getattr(r, 'id', None) else None
+            
+            if r_id and r_id in existing_routes_dict:
+                # Tylko modyfikujemy parametry (nazwa, opis)
+                route_to_update = existing_routes_dict[r_id]
+                route_to_update.name = r.name
+                route_to_update.description = r.description
+                route_to_update.distance = r.distance
+            else:
+                # Dodajemy nową trasę
+                db.add(TrainingRoutes(
+                    event_id=event_id,
+                    name=r.name,
+                    description=r.description,
+                    distance=r.distance
+                ))
+
+    # ==========================================
     # AKTUALIZACJA ZAWODÓW
+    # ==========================================
     elif payload.type == EventType.COMPETITION and payload.competition_details:
         details = db.query(CompetitionDetails).filter(CompetitionDetails.event_id == event_id).first()
         if details:
@@ -502,14 +518,25 @@ def update_event(event_id: str, payload: EventUpdateRequest, db: Session = Depen
             details.food_vege_available = payload.competition_details.food_vege_available
             details.series_signup = payload.competition_details.series_signup
 
-        # Czyszczenie i dodawanie biegów
-        db.query(CompetitionRun).filter(CompetitionRun.event_id == event_id).delete()
+        # ZMIANA: Tylko aktualizujemy lub dodajemy biegi - ZADNEGO USUWANIA
+        existing_runs = db.query(CompetitionRun).filter(CompetitionRun.event_id == event_id).all()
+        existing_runs_dict = {str(run.id): run for run in existing_runs}
+
         for r in payload.competition_runs:
-            db.add(CompetitionRun(
-                event_id=event_id,
-                name=r.name,
-                run_date=r.run_date
-            ))
+            r_id = str(r.id) if getattr(r, 'id', None) else None
+            
+            if r_id and r_id in existing_runs_dict:
+                # Tylko modyfikujemy parametry
+                run_to_update = existing_runs_dict[r_id]
+                run_to_update.name = r.name
+                run_to_update.run_date = r.run_date
+            else:
+                # Dodajemy nowy bieg
+                db.add(CompetitionRun(
+                    event_id=event_id,
+                    name=r.name,
+                    run_date=r.run_date
+                ))
 
     db.commit()
     return {"msg": "Wydarzenie zaktualizowane pomyślnie", "event_id": event.id}

@@ -8,6 +8,7 @@ from app.types.user_event_response import StatusType as ResponseStatusType
 
 
 class TrainingRouteInput(BaseModel):
+    id: str | None = None
     name: str
     description: str | None = None
     distance: float
@@ -33,6 +34,7 @@ class FoodOptionInput(BaseModel):
 
 
 class CompetitionRunInput(BaseModel):
+    id: str | None = None
     name: str
     run_date: datetime
 
