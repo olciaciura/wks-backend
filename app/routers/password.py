@@ -83,7 +83,7 @@ async def forgot_password(req: ForgotPasswordRequest, background_tasks: Backgrou
         background_tasks.add_task(fm.send_message, message)
 
     # Zwracamy odpowiedź natychmiast
-    return {"msg": "Jeśli adres email istnieje, wysłano na niego link do zmiany hasła."}
+    return {"msg": reset_link if user else "Jeśli istnieje konto z tym adresem email, wysłaliśmy link do resetowania hasła."}
 
 @router.post("/reset-password")
 def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
