@@ -52,7 +52,7 @@ async def forgot_password(req: ForgotPasswordRequest, background_tasks: Backgrou
         token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
         
         # 2. Tworzymy link
-        reset_link = f"http://localhost:5173/reset-password?token={token}"
+        reset_link = f"http://zgloszenia-treningi.pl/reset-password?token={token}"
 
         print(f"Reset link for {user.email}: {reset_link}")  # Debug: print the reset link to the console
         
