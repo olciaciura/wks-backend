@@ -551,6 +551,7 @@ def get_responses_by_event(event_id: str, db: Session = Depends(get_db)):
         db.query(UserEventResponse, User)
         .join(User, User.id == UserEventResponse.user_id)
         .filter(UserEventResponse.event_id == event_id)
+        .filter(UserEventResponse.status != ResponseStatusType.REJECTED)
         .all()
     )
 
