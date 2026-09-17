@@ -36,7 +36,7 @@ def _deduplicate_user_event_responses(db: Session, event_id: str | None = None, 
         query.order_by(
             UserEventResponse.event_id.asc(),
             UserEventResponse.user_id.asc(),
-            UserEventResponse.submitted_at.desc().nullslast(),
+            UserEventResponse.submitted_at.desc(),
             UserEventResponse.id.desc(),
         )
         .all()
@@ -281,7 +281,7 @@ def submit_training_event_response(event_id: str, payload: SubmitTrainingRespons
     root_response = (
         db.query(UserEventResponse)
         .filter(UserEventResponse.event_id == event_id, UserEventResponse.user_id == payload.user_id)
-        .order_by(UserEventResponse.submitted_at.desc().nullslast(), UserEventResponse.id.desc())
+        .order_by(UserEventResponse.submitted_at.desc(), UserEventResponse.id.desc())
         .first()
     )
 
@@ -329,7 +329,7 @@ def submit_competition_event_response(event_id: str, payload: SubmitCompetitionR
     root_response = (
         db.query(UserEventResponse)
         .filter(UserEventResponse.event_id == event_id, UserEventResponse.user_id == payload.user_id)
-        .order_by(UserEventResponse.submitted_at.desc().nullslast(), UserEventResponse.id.desc())
+        .order_by(UserEventResponse.submitted_at.desc(), UserEventResponse.id.desc())
         .first()
     )
 
@@ -602,7 +602,7 @@ def get_responses_by_event(event_id: str, db: Session = Depends(get_db)):
         .join(User, User.id == UserEventResponse.user_id)
         .filter(UserEventResponse.event_id == event_id)
         .filter(UserEventResponse.status != ResponseStatusType.REJECTED)
-        .order_by(UserEventResponse.user_id.asc(), UserEventResponse.submitted_at.desc().nullslast(), UserEventResponse.id.desc())
+        .order_by(UserEventResponse.user_id.asc(), UserEventResponse.submitted_at.desc(), UserEventResponse.id.desc())
         .all()
     )
 
