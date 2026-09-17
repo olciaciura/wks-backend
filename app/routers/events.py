@@ -595,8 +595,6 @@ def get_responses_by_event(event_id: str, db: Session = Depends(get_db)):
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    _deduplicate_user_event_responses(db, event_id=event_id)
-
     responses = (
         db.query(UserEventResponse, User)
         .join(User, User.id == UserEventResponse.user_id)
