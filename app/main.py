@@ -1,8 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
 
-from app.database import Base, SessionLocal, engine
+from app.database import Base, engine
 from app.routers import events, password, users
 
 # Import models so SQLAlchemy registers all tables in Base.metadata.
@@ -17,43 +16,6 @@ from app.models.user_event_response import UserEventResponse  # noqa: F401
 from app.models.training_responses import TrainingResponse  # noqa: F401
 from app.models.competition_responses import CompetitionResponse  # noqa: F401
 from app.models.competition_run_selection import CompetitionRunSelection  # noqa: F401
-
-
-def cleanup_duplicate_user_event_responses() -> None:
-    db = SessionLocal()
-    try:
-        rows = (
-            db.query(UserEventResponse)
-            .order_by(
-                UserEventResponse.event_id.asc(),
-                UserEventResponse.user_id.asc(),
-                UserEventResponse.submitted_at.desc().nullslast(),
-                UserEventResponse.id.desc(),
-            )
-            .all()
-        )
-
-        seen = set()
-        for row in rows:
-            key = (row.event_id, row.user_id)
-            if key in seen:
-                db.delete(row)
-            else:
-                seen.add(key)
-
-        db.commit()
-
-        try:
-            db.execute(
-                text(
-                    "CREATE UNIQUE INDEX uq_user_event_response_event_user ON user_event_responses (event_id, user_id)"
-                )
-            )
-            db.commit()
-        except Exception:
-            db.rollback()
-    finally:
-        db.close()
 
 
 app = FastAPI()
@@ -78,7 +40,6 @@ app.include_router(users.router)
 app.include_router(events.router)
 app.include_router(password.router)
 Base.metadata.create_all(bind=engine)
-cleanup_duplicate_user_event_responses()
 
 @app.get("/")
 def read_root():
