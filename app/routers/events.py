@@ -25,6 +25,34 @@ from sqlalchemy.exc import IntegrityError
 router = APIRouter(prefix="/events", tags=["events"])
 
 
+def _deduplicate_user_event_responses(db: Session, event_id: str | None = None, user_id: str | None = None) -> None:
+    query = db.query(UserEventResponse)
+    if event_id is not None:
+        query = query.filter(UserEventResponse.event_id == event_id)
+    if user_id is not None:
+        query = query.filter(UserEventResponse.user_id == user_id)
+
+    rows = (
+        query.order_by(
+            UserEventResponse.event_id.asc(),
+            UserEventResponse.user_id.asc(),
+            UserEventResponse.submitted_at.desc().nullslast(),
+            UserEventResponse.id.desc(),
+        )
+        .all()
+    )
+
+    seen = set()
+    for row in rows:
+        key = (row.event_id, row.user_id)
+        if key in seen:
+            db.delete(row)
+        else:
+            seen.add(key)
+
+    db.flush()
+
+
 def get_db():
     db = SessionLocal()
     try:
@@ -171,7 +199,14 @@ def list_user_events(user_id: str, db: Session = Depends(get_db)):
     )
 
     response = []
+    seen = set()
     for event, user_response in rows:
+        if user_response is not None:
+            key = (user_response.event_id, user_response.user_id)
+            if key in seen:
+                continue
+            seen.add(key)
+
         response.append(
             {
                 "event_id": event.id,
@@ -206,7 +241,14 @@ def list_all_events(user_id: str, db: Session = Depends(get_db)):
     )
 
     response = []
+    seen = set()
     for event, user_response in rows:
+        if user_response is not None:
+            key = (user_response.event_id, user_response.user_id)
+            if key in seen:
+                continue
+            seen.add(key)
+
         response.append(
             {
                 "event_id": event.id,
@@ -234,9 +276,12 @@ def submit_training_event_response(event_id: str, payload: SubmitTrainingRespons
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    _deduplicate_user_event_responses(db, event_id=event_id, user_id=payload.user_id)
+
     root_response = (
         db.query(UserEventResponse)
         .filter(UserEventResponse.event_id == event_id, UserEventResponse.user_id == payload.user_id)
+        .order_by(UserEventResponse.submitted_at.desc().nullslast(), UserEventResponse.id.desc())
         .first()
     )
 
@@ -279,9 +324,12 @@ def submit_competition_event_response(event_id: str, payload: SubmitCompetitionR
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    _deduplicate_user_event_responses(db, event_id=event_id, user_id=payload.user_id)
+
     root_response = (
         db.query(UserEventResponse)
         .filter(UserEventResponse.event_id == event_id, UserEventResponse.user_id == payload.user_id)
+        .order_by(UserEventResponse.submitted_at.desc().nullslast(), UserEventResponse.id.desc())
         .first()
     )
 
@@ -547,11 +595,14 @@ def get_responses_by_event(event_id: str, db: Session = Depends(get_db)):
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
+    _deduplicate_user_event_responses(db, event_id=event_id)
+
     responses = (
         db.query(UserEventResponse, User)
         .join(User, User.id == UserEventResponse.user_id)
         .filter(UserEventResponse.event_id == event_id)
         .filter(UserEventResponse.status != ResponseStatusType.REJECTED)
+        .order_by(UserEventResponse.user_id.asc(), UserEventResponse.submitted_at.desc().nullslast(), UserEventResponse.id.desc())
         .all()
     )
 
@@ -573,8 +624,13 @@ def get_responses_by_event(event_id: str, db: Session = Depends(get_db)):
         participants = 0
         needs_transport = 0
         transport_places_offered = 0
+        seen_users = set()
 
         for response, user in responses:
+            if response.user_id in seen_users:
+                continue
+            seen_users.add(response.user_id)
+
             if response.status == ResponseStatusType.FILLED:
                 participants += 1
 
@@ -654,8 +710,13 @@ def get_responses_by_event(event_id: str, db: Session = Depends(get_db)):
         wants_vege = 0
 
         run_stats = {}
+        seen_users = set()
 
         for response, user in responses:
+            if response.user_id in seen_users:
+                continue
+            seen_users.add(response.user_id)
+
             if response.status == ResponseStatusType.FILLED:
                 participants += 1
 
